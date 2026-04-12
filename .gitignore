@@ -38,3 +38,12 @@ plans/
 .pi/hf-sessions/
 .pi/hf-sessions-backup/
 collect.sh
+
+# Local claude-code settings
+.claude/
+
+# Local pi workspace (bind-mounted into Docker)
+.workspace/
+
+# Scratch
+AGENTS-from-Hermes.md

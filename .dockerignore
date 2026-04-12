@@ -1,0 +1,10 @@
+node_modules
+packages/*/node_modules
+dist
+packages/*/dist
+packages/coding-agent/binaries
+.git
+.workspace
+*.log
+.DS_Store
+.env

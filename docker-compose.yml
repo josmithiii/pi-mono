@@ -1,0 +1,26 @@
+name: pi-agent
+
+services:
+  pi:
+    image: pi-agent:local
+    env_file:
+      - ${HOME}/.pi/.env
+    volumes:
+      - ${HOME}/.pi:/home/pi/.pi/agent
+      - ${PI_WORKSPACE_DIR}:/opt/workspace
+      - ${HOME}/wiki:/opt/workspace/wiki:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    dns:
+      - 192.168.1.254
+      - 8.8.8.8
+    environment:
+      - TERM=xterm-256color
+    stdin_open: true
+    tty: true
+    init: true
+    cap_drop:
+      - NET_RAW
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
