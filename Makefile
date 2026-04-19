@@ -5,7 +5,7 @@ export PI_WORKSPACE_DIR ?= $(shell mkdir -p .workspace && realpath .workspace)
 .DEFAULT_GOAL := help
 
 .PHONY: help build rebuild up down restart run logs shell status \
-        inspect lsws workspace-sync clean-workspace images prune
+        inspect lsws doctor workspace-sync clean clean-workspace images prune
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -69,11 +69,18 @@ task: up ## Run a one-shot query (usage: make task Q="summarize this codebase")
 sessions: ## List session files
 	docker compose exec $(SERVICE) ls -lt /home/pi/.pi/agent/sessions/
 
+doctor: ## Run pi doctor inside the container
+	docker compose exec $(SERVICE) pi doctor
+
 # — Workspace —
 
 workspace-sync: ## Ensure .workspace dir exists
 	@mkdir -p .workspace
 	@echo "Workspace dir: $(PI_WORKSPACE_DIR)"
+
+clean: ## Remove exited pi containers
+	@ids=$$(docker ps -aq -f name=pi-agent- -f status=exited); \
+	if [ -n "$$ids" ]; then docker rm $$ids; else echo "No exited pi containers."; fi
 
 clean-workspace: ## Wipe workspace contents
 	rm -rf .workspace/*
