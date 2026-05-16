@@ -8,7 +8,7 @@ export PI_WORKSPACE_DIR ?= $(shell mkdir -p .workspace && realpath .workspace)
         inspect lsws doctor workspace-sync clean clean-workspace images prune
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
 
 # — Image —
 
@@ -34,8 +34,8 @@ restart: ## Recreate the container (down + up)
 run: ## Run a disposable pi container (removed on exit)
 	docker compose run --rm $(SERVICE)
 
-shell: up ## Open a bash shell in the running container
-	docker compose exec $(SERVICE) bash
+shell: up ## Open a bash shell in the running container (telegram disabled)
+	docker compose exec -e TELEGRAM_BOT_TOKEN= $(SERVICE) bash
 
 # — Observe —
 
@@ -60,17 +60,21 @@ lsvsns: ## List visible services using netstat
 
 # — Pi commands —
 
-chat: up ## Open interactive pi CLI in the container
-	docker compose exec $(SERVICE) pi
+chat: up ## Open interactive pi CLI in the container (telegram disabled — daemon owns it)
+	docker compose exec -e TELEGRAM_BOT_TOKEN= $(SERVICE) pi
 
 task: up ## Run a one-shot query (usage: make task Q="summarize this codebase")
-	docker compose exec $(SERVICE) pi -p "$(Q)"
+	docker compose exec -e TELEGRAM_BOT_TOKEN= $(SERVICE) pi -p "$(Q)"
 
 sessions: ## List session files
 	docker compose exec $(SERVICE) ls -lt /home/pi/.pi/agent/sessions/
 
+settings: up
+	docker exec pi-agent-pi-1 cat /home/pi/.pi/agent/settings.json
+
 doctor: ## Run pi doctor inside the container
-	docker compose exec $(SERVICE) pi doctor
+	docker compose exec -e TELEGRAM_BOT_TOKEN= $(SERVICE) pi doctor
+
 
 # — Workspace —
 
@@ -84,6 +88,30 @@ clean: ## Remove exited pi containers
 
 clean-workspace: ## Wipe workspace contents
 	rm -rf .workspace/*
+
+# — MLX (host-side; shared wrapper at ~/bin/mlx_serve) —
+
+mup: ## Start MLX (default: Gemma 4 31B 4-bit; idempotent)
+	$$HOME/bin/mlx_serve &
+
+mup3: ## Swap MLX to Gemma 3 27B 4-bit
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-3-27b-it-4bit &
+
+mup3s: ## Swap MLX to Gemma 3 12B 4-bit (small/fast)
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-3-12b-it-4bit &
+
+mup4f: ## Swap MLX to Gemma 4 31B bf16 (full precision, ~60 GB)
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-4-31b-it-bf16 &
+
+mdown: ## Stop the host MLX server
+	@pids=$$(lsof -t -iTCP:8765 -sTCP:LISTEN 2>/dev/null); \
+	if [ -n "$$pids" ]; then kill $$pids && echo "mlx stopped (pids: $$pids)"; \
+	else echo "mlx not running"; fi
+
+mstatus: ## Show whether MLX server is listening
+	@if lsof -iTCP:8765 -sTCP:LISTEN -nP >/dev/null 2>&1; then \
+		echo ":8765 UP  ($$(lsof -iTCP:8765 -sTCP:LISTEN -nP | awk 'NR==2 {print $$1, "pid", $$2}'))"; \
+	else echo ":8765 DOWN"; fi
 
 # — Docker housekeeping —
 
